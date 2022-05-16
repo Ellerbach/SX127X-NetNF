@@ -19,88 +19,88 @@
 //#define ST_STM32F769I_DISCOVERY      // nanoff --target ST_STM32F769I_DISCOVERY --update 
 namespace devMobile.IoT.SX127x.RegisterScan
 {
-   using System;
-   using System.Diagnostics;
-   using System.Threading;
+    using System;
+    using System.Diagnostics;
+    using System.Threading;
 
-   using System.Device.Gpio;
-   using System.Device.Spi;
+    using System.Device.Gpio;
+    using System.Device.Spi;
 
 #if ESP32_WROOM_32_LORA_1_CHANNEL
    using nanoFramework.Hardware.Esp32;
 #endif
 
-   public sealed class SX127XDevice
-   {
-      private readonly SpiDevice SX127XTransceiver;
+    public sealed class SX127XDevice
+    {
+        private readonly SpiDevice SX127XTransceiver;
 
-      public SX127XDevice(int busId, int chipSelectLine)
-      {
+        public SX127XDevice(int busId, int chipSelectLine)
+        {
 
-         var settings = new SpiConnectionSettings(busId, chipSelectLine)
-         {
-            ClockFrequency = 1000000,
-            Mode = SpiMode.Mode0,// From SemTech docs pg 80 CPOL=0, CPHA=0
-            SharingMode = SpiSharingMode.Shared
-         };
+            var settings = new SpiConnectionSettings(busId, chipSelectLine)
+            {
+                ClockFrequency = 1000000,
+                Mode = SpiMode.Mode0,// From SemTech docs pg 80 CPOL=0, CPHA=0
+                SharingMode = SpiSharingMode.Shared
+            };
 
-         SX127XTransceiver = new SpiDevice(settings);
-      }
+            SX127XTransceiver = new SpiDevice(settings);
+        }
 
-      public SX127XDevice(int busId, int chipSelectLine, int resetPin)
-      {
-         var settings = new SpiConnectionSettings(busId, chipSelectLine)
-         {
-            ClockFrequency = 1000000,
-            Mode = SpiMode.Mode0,// From SemTech docs pg 80 CPOL=0, CPHA=0
-            SharingMode = SpiSharingMode.Shared
-         };
+        public SX127XDevice(int busId, int chipSelectLine, int resetPin)
+        {
+            var settings = new SpiConnectionSettings(busId, chipSelectLine)
+            {
+                ClockFrequency = 1000000,
+                Mode = SpiMode.Mode0,// From SemTech docs pg 80 CPOL=0, CPHA=0
+                SharingMode = SpiSharingMode.Shared
+            };
 
-         SX127XTransceiver = new SpiDevice(settings);
+            SX127XTransceiver = new SpiDevice(settings);
 
-         // Factory reset pin configuration
-         GpioController gpioController = new GpioController();
-         gpioController.OpenPin(resetPin, PinMode.Output);
+            // Factory reset pin configuration
+            GpioController gpioController = new GpioController();
+            gpioController.OpenPin(resetPin, PinMode.Output);
 
-         gpioController.Write(resetPin, PinValue.Low);
-         Thread.Sleep(20);
-         gpioController.Write(resetPin, PinValue.High);
-         Thread.Sleep(20);
-      }
+            gpioController.Write(resetPin, PinValue.Low);
+            Thread.Sleep(20);
+            gpioController.Write(resetPin, PinValue.High);
+            Thread.Sleep(20);
+        }
 
-      public Byte RegisterReadByte(byte registerAddress)
-      {
-         byte[] writeBuffer = new byte[] { registerAddress, 0x0 };
-         byte[] readBuffer = new byte[writeBuffer.Length];
+        public Byte RegisterReadByte(byte registerAddress)
+        {
+            byte[] writeBuffer = new byte[] { registerAddress, 0x0 };
+            byte[] readBuffer = new byte[writeBuffer.Length];
 
-         SX127XTransceiver.TransferFullDuplex(writeBuffer, readBuffer);
+            SX127XTransceiver.TransferFullDuplex(writeBuffer, readBuffer);
 
-         return readBuffer[1];
-      }
-   }
+            return readBuffer[1];
+        }
+    }
 
-   public class Program
-   {
+    public class Program
+    {
 #if ESP32_WROOM_32_LORA_1_CHANNEL
       private const int SpiBusId = 1;
 #endif
 #if NETDUINO3_WIFI
-      private const int SpiBusId = 2;
+        private const int SpiBusId = 2;
 #endif
 #if ST_STM32F769I_DISCOVERY
       private const int SpiBusId = 2;
 #endif
 
-      public static void Main()
-      {
+        public static void Main()
+        {
 #if ESP32_WROOM_32_LORA_1_CHANNEL
          int chipSelectLine = Gpio.IO16;
 #endif
 #if NETDUINO3_WIFI
-         // Arduino D10->PB10
-         int chipSelectLine = PinNumber('B', 10);
-         // Arduino D9->PE5
-         int resetPinNumber = PinNumber('E', 5);
+            // Arduino D10->PB10
+            int chipSelectLine = PinNumber('B', 10);
+            // Arduino D9->PE5
+            int resetPinNumber = PinNumber('E', 5);
 #endif
 #if ST_STM32F769I_DISCOVERY
          // Arduino D10->PA11
@@ -109,12 +109,12 @@ namespace devMobile.IoT.SX127x.RegisterScan
          int resetPinNumber = PinNumber('H', 6);
 #endif
 
-         Debug.WriteLine("devMobile.IoT.SX127x.RegisterScan starting");
+            Debug.WriteLine("devMobile.IoT.SX127x.RegisterScan starting");
 
-         try
-         {
+            try
+            {
 #if NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY
-            SX127XDevice sx127XDevice = new SX127XDevice(SpiBusId, chipSelectLine, resetPinNumber);
+                SX127XDevice sx127XDevice = new SX127XDevice(SpiBusId, chipSelectLine, resetPinNumber);
 #endif
 
 #if ESP32_WROOM_32_LORA_1_CHANNEL
@@ -125,35 +125,35 @@ namespace devMobile.IoT.SX127x.RegisterScan
             SX127XDevice sx127XDevice = new SX127XDevice(SpiBusId, chipSelectLine);
 #endif
 
-            Thread.Sleep(500);
+                Thread.Sleep(500);
 
-            while (true)
-            {
-               for (byte registerIndex = 0; registerIndex <= 0x42; registerIndex++)
-               {
-                  byte registerValue = sx127XDevice.RegisterReadByte(registerIndex);
+                while (true)
+                {
+                    for (byte registerIndex = 0; registerIndex <= 0x42; registerIndex++)
+                    {
+                        byte registerValue = sx127XDevice.RegisterReadByte(registerIndex);
 
-                  Debug.WriteLine($"Register 0x{registerIndex:x2} - Value 0X{registerValue:x2}");
-               }
-               Debug.WriteLine("");
+                        Debug.WriteLine($"Register 0x{registerIndex:x2} - Value 0X{registerValue:x2}");
+                    }
+                    Debug.WriteLine("");
 
-               Thread.Sleep(10000);
+                    Thread.Sleep(10000);
+                }
             }
-         }
-         catch (Exception ex)
-         {
-            Debug.WriteLine(ex.Message);
-         }
-      }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+        }
 
 #if NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY
-      static int PinNumber(char port, byte pin)
-      {
-         if (port < 'A' || port > 'J')
-            throw new ArgumentException();
+        static int PinNumber(char port, byte pin)
+        {
+            if (port < 'A' || port > 'J')
+                throw new ArgumentException();
 
-         return ((port - 'A') * 16) + pin;
-      }
+            return ((port - 'A') * 16) + pin;
+        }
 #endif
-   }
+    }
 }

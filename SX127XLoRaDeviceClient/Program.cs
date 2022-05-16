@@ -14,9 +14,11 @@
 // limitations under the License.
 //
 //---------------------------------------------------------------------------------
-#define NETDUINO3_WIFI   // nanoff --target NETDUINO3_WIFI --update
+//#define NETDUINO3_WIFI   // nanoff --target NETDUINO3_WIFI --update
 //#define ESP32_WROOM_32_LORA_1_CHANNEL   // nanoff --target ESP32_PSRAM_REV0 --serialport COM7 --update
 //#define ST_STM32F769I_DISCOVERY      // nanoff --target ST_STM32F769I_DISCOVERY --update 
+#define TTGO_V0 // nanoff --target ESP32_PSRAM_XTAL26_REV0 --update
+
 namespace devMobile.IoT.SX127xLoRaDevice
 {
 	using System;
@@ -25,11 +27,14 @@ namespace devMobile.IoT.SX127xLoRaDevice
 
 	using System.Device.Gpio;
 	using System.Device.Spi;
+#if ESP32_WROOM_32_LORA_1_CHANNEL || TTGO_V0
+	using Esp32 = nanoFramework.Hardware.Esp32;
+#endif
 
 	class Program
 	{
 		private const double Frequency = 915000000.0;
-#if ESP32_WROOM_32_LORA_1_CHANNEL
+#if ESP32_WROOM_32_LORA_1_CHANNEL || TTGO_V0
       private const int SpiBusId = 1;
 #endif
 #if NETDUINO3_WIFI
@@ -63,6 +68,12 @@ namespace devMobile.IoT.SX127xLoRaDevice
 			// Arduino D2->PA4
 			int interruptPinNumber = PinNumber('J', 1);
 #endif
+#if TTGO_V0
+			int ledPinNumber = Esp32.Gpio.IO02;
+			int chipSelectLine = Esp32.Gpio.IO18;
+			int interruptPinNumber = Esp32.Gpio.IO26;
+#endif
+
 			Console.WriteLine("devMobile.IoT.SX127xLoRaDevice Client starting");
 
 			try
@@ -86,6 +97,20 @@ namespace devMobile.IoT.SX127xLoRaDevice
 #endif
 #if NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY
 					sx127XDevice = new SX127XDevice(spiDevice, gpioController, interruptPinNumber, resetPinNumber);
+#endif
+#if TTGO_V0
+					Esp32.Configuration.SetPinFunction(Esp32.Gpio.IO19, Esp32.DeviceFunction.SPI1_MISO);
+					Esp32.Configuration.SetPinFunction(Esp32.Gpio.IO27, Esp32.DeviceFunction.SPI1_MOSI);
+					Esp32.Configuration.SetPinFunction(Esp32.Gpio.IO05, Esp32.DeviceFunction.SPI1_CLOCK);
+					sx127XDevice = new SX127XDevice(spiDevice, gpioController, interruptPinNumber);
+					// Setup the reset pin 14 for old models, 23 for recent ones
+					int pinReset = Esp32.Gpio.IO14;
+					gpioController.OpenPin(pinReset, PinMode.Output);
+					gpioController.Write(pinReset, PinValue.High);
+					Thread.Sleep(100);
+					gpioController.Write(pinReset, PinValue.Low);
+					Thread.Sleep(100);
+					gpioController.Write(pinReset, PinValue.High);
 #endif
 
 					sx127XDevice.Initialise(Frequency

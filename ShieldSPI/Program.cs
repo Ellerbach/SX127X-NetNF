@@ -14,28 +14,29 @@
 // limitations under the License.
 //
 //---------------------------------------------------------------------------------
-#define NETDUINO3_WIFI   // nanoff --target NETDUINO3_WIFI --update
+//#define NETDUINO3_WIFI   // nanoff --target NETDUINO3_WIFI --update
 //#define ESP32_WROOM_32_LORA_1_CHANNEL   // nanoff --target ESP32_PSRAM_REV0 --serialport COM7 --update
 //#define ST_STM32F769I_DISCOVERY      // nanoff --target ST_STM32F769I_DISCOVERY --update 
+#define TTGO_V0 // nanoff --target ESP32_PSRAM_XTAL26_REV0 --update
 
 namespace devMobile.IoT.SX127x.ShieldSPI
 {
-   using System;
-   using System.Diagnostics;
-   using System.Threading;
+    using System;
+    using System.Diagnostics;
+    using System.Threading;
 
-   using System.Device.Gpio;
-   using System.Device.Spi;
+    using System.Device.Gpio;
+    using System.Device.Spi;
 
-#if ESP32_WROOM_32_LORA_1_CHANNEL
-   using nanoFramework.Hardware.Esp32;
+#if ESP32_WROOM_32_LORA_1_CHANNEL || TTGO_V0
+    using nanoFramework.Hardware.Esp32;
 #endif
 
-   public class Program
-   {
-      private const byte RegVersion = 0x42;
-#if ESP32_WROOM_32_LORA_1_CHANNEL
-      private const int SpiBusId = 1;
+    public class Program
+    {
+        private const byte RegVersion = 0x42;
+#if ESP32_WROOM_32_LORA_1_CHANNEL || TTGO_V0
+        private const int SpiBusId = 1;
 #endif
 #if NETDUINO3_WIFI
       private const int SpiBusId = 2;
@@ -44,9 +45,9 @@ namespace devMobile.IoT.SX127x.ShieldSPI
       private const int SpiBusId = 2;
 #endif
 
-      public static void Main()
-      {
-         GpioController gpioController = new GpioController();
+        public static void Main()
+        {
+            GpioController gpioController = new GpioController();
 
 #if ESP32_WROOM_32_LORA_1_CHANNEL // No reset line for this device as it isn't connected on SX127X
          int ledPinNumber = Gpio.IO17;
@@ -66,13 +67,17 @@ namespace devMobile.IoT.SX127x.ShieldSPI
          // Arduino D9->PH6
          int resetPinNumber = PinNumber('H', 6);
 #endif
-         Debug.WriteLine("devMobile.IoT.SX127x.ShieldSPI starting");
+#if TTGO_V0
+            int ledPinNumber = Gpio.IO17;
+            int chipSelectLine = Gpio.IO18;
+#endif
+            Debug.WriteLine("devMobile.IoT.SX127x.ShieldSPI starting");
 
-         try
-         {
-#if ESP32_WROOM_32_LORA_1_CHANNEL || NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY
-            // Setup the onboard LED
-            gpioController.OpenPin(ledPinNumber, PinMode.Output);
+            try
+            {
+#if ESP32_WROOM_32_LORA_1_CHANNEL || NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY || TTGO_V0
+                // Setup the onboard LED
+                gpioController.OpenPin(ledPinNumber, PinMode.Output);
 #endif
 
 #if NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY
@@ -86,26 +91,39 @@ namespace devMobile.IoT.SX127x.ShieldSPI
             Configuration.SetPinFunction(Gpio.IO13, DeviceFunction.SPI1_MOSI);
             Configuration.SetPinFunction(Gpio.IO14, DeviceFunction.SPI1_CLOCK);
 #endif
+#if TTGO_V0
+                Configuration.SetPinFunction(Gpio.IO19, DeviceFunction.SPI1_MISO);
+                Configuration.SetPinFunction(Gpio.IO27, DeviceFunction.SPI1_MOSI);
+                Configuration.SetPinFunction(Gpio.IO05, DeviceFunction.SPI1_CLOCK);
+                // Setup the reset pin 14 for old models, 23 for recent ones
+                int pinReset = Gpio.IO14;
+                gpioController.OpenPin(pinReset, PinMode.Output);
+                gpioController.Write(pinReset, PinValue.High);
+                Thread.Sleep(100);
+                gpioController.Write(pinReset, PinValue.Low);
+                Thread.Sleep(100);
+                gpioController.Write(pinReset, PinValue.High);
+#endif
 
-            var settings = new SpiConnectionSettings(SpiBusId, chipSelectLine)
-            {
-               ClockFrequency = 1000000,
-               Mode = SpiMode.Mode0,// From SemTech docs pg 80 CPOL=0, CPHA=0
-               SharingMode = SpiSharingMode.Shared,
-            };
+                var settings = new SpiConnectionSettings(SpiBusId, chipSelectLine)
+                {
+                    ClockFrequency = 1000000,
+                    Mode = SpiMode.Mode0,// From SemTech docs pg 80 CPOL=0, CPHA=0
+                    SharingMode = SpiSharingMode.Shared,
+                };
 
-            using (SpiDevice device = SpiDevice.Create(settings))
-            {
-               Thread.Sleep(500);
+                using (SpiDevice device = SpiDevice.Create(settings))
+                {
+                    Thread.Sleep(500);
 
-               while (true)
-               {
-                  byte[] writeBuffer = new byte[] { RegVersion, 0x0 };
-                  byte[] readBuffer = new byte[writeBuffer.Length];
+                    while (true)
+                    {
+                        byte[] writeBuffer = new byte[] { RegVersion, 0x0 };
+                        byte[] readBuffer = new byte[writeBuffer.Length];
 
-                  device.TransferFullDuplex(writeBuffer, readBuffer);
+                        device.TransferFullDuplex(writeBuffer, readBuffer);
 
-                  Debug.WriteLine(String.Format("Register 0x{0:x2} - Value 0X{1:x2}", RegVersion, readBuffer[1]));
+                        Debug.WriteLine(String.Format("Register 0x{0:x2} - Value 0X{1:x2}", RegVersion, readBuffer[1]));
 
 #if ESP32_WROOM_32_LORA_1_CHANNEL || NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY
                   if ( gpioController.Read(ledPinNumber) == PinValue.High)
@@ -117,15 +135,15 @@ namespace devMobile.IoT.SX127x.ShieldSPI
                      gpioController.Write(ledPinNumber, PinValue.High);
                   }
 #endif
-                  Thread.Sleep(10000);
-               }
+                        Thread.Sleep(10000);
+                    }
+                }
             }
-         }
-         catch (Exception ex)
-         {
-            Debug.WriteLine(ex.Message);
-         }
-      }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+        }
 
 #if NETDUINO3_WIFI || ST_STM32F769I_DISCOVERY
       static int PinNumber(char port, byte pin)
@@ -136,5 +154,5 @@ namespace devMobile.IoT.SX127x.ShieldSPI
          return ((port - 'A') * 16) + pin;
       }
 #endif
-   }
+    }
 }
